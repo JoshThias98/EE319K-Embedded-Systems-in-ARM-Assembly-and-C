@@ -17,6 +17,12 @@
     AREA    |.text|, CODE, READONLY, ALIGN=2
     THUMB
 
+LV EQU 0
+	
+C1 EQU 0
+C2 EQU 4
+C3 EQU 8
+C4 EQU 12
   
 
 ;-----------------------LCD_OutDec-----------------------
@@ -26,8 +32,24 @@
 ; Invariables: This function must not permanently modify registers R4 to R11
 LCD_OutDec
 
-
-      BX  LR
+	  SUB SP, #8
+	  STR LR, [SP, #LV]
+	  CMP R0, #10         ;checks if the character is less than 10, if so ends
+	  BLO OEND
+	  MOV R2, #10         ;make r2 number 10
+	  UDIV R3, R0, R2     ;r3=r0/r2, or r3=input/10
+	  MUL R1, R3, R2      ;r1=r3*r2, or r1=(input/10)*10
+	  SUB R1, R0, R1      ;r1=remainder
+	  PUSH {R1, R11}      ;pushes remainder to stack
+	  MOVS R0, R3         ;r0=input/10
+	  BL LCD_OutDec
+	  POP {R0, R11}       
+OEND  ADD R0, R0, #0x30
+      BL ST7735_OutChar
+	  LDR LR, [SP, #LV]
+	  ADD SP, #8
+	  BX  LR
+	  
 ;* * * * * * * * End of LCD_OutDec * * * * * * * *
 
 ; -----------------------LCD _OutFix----------------------
@@ -43,6 +65,61 @@ LCD_OutDec
 ;       R0>9999, then output "*.*** "
 ; Invariables: This function must not permanently modify registers R4 to R11
 LCD_OutFix
+
+	PUSH {R4, LR}
+	  SUB SP, #16			; Allocation
+	 MOV R4, #10000        ;check if r0 is 10000, if so output *.***
+	 CMP R0, R4
+	 BHS STAR
+	 
+	  MOV R2, #10         ;make r2 number 10
+	  UDIV R3, R0, R2     ;r3=r0/r2, or r3=input/10
+	  MUL R1, R3, R2      ;r1=r3*r2, or r1=(input/10)*10
+	  SUB R1, R0, R1      ;r1=remainder
+	  ADD R1, #0x30
+	  STR R1, [SP, #C1]
+	  MOVS R0, R3         ;r0=input/10
+	  
+	  UDIV R3, R0, R2     ;r3=r0/r2, or r3=input/10
+	  MUL R1, R3, R2      ;r1=r3*r2, or r1=(input/10)*10
+	  SUB R1, R0, R1      ;r1=remainder
+	  ADD R1, #0x30
+	  STR R1, [SP, #C2]
+	  MOVS R0, R3         ;r0=input/10
+	  
+	  UDIV R3, R0, R2     ;r3=r0/r2, or r3=input/10
+	  MUL R1, R3, R2      ;r1=r3*r2, or r1=(input/10)*10
+	  SUB R1, R0, R1      ;r1=remainder
+	  ADD R1, #0x30
+	  STR R1, [SP, #C3]
+	  MOVS R0, R3         ;r0=input/10
+	  
+	  UDIV R3, R0, R2     ;r3=r0/r2, or r3=input/10
+	  MUL R1, R3, R2      ;r1=r3*r2, or r1=(input/10)*10
+	  SUB R1, R0, R1      ;r1=remainder
+	  ADD R1, #0x30
+	  STR R1, [SP, #C4]
+	  
+	  B OUT
+STAR	
+	MOV R0, #0x2A
+	STR R0, [SP, #C1]
+	STR R0, [SP, #C2]
+	STR R0, [SP, #C3]
+	STR R0, [SP, #C4]
+	
+OUT	 LDR R0, [SP, #C4]
+     BL ST7735_OutChar
+	 MOV R0, #0x2E
+	 BL ST7735_OutChar
+	 LDR R0, [SP, #C3]
+     BL ST7735_OutChar
+	 LDR R0, [SP, #C2]
+     BL ST7735_OutChar
+	 LDR R0, [SP, #C1]
+	 BL ST7735_OutChar
+	 ADD SP, #16
+	 POP {R4, PC}
 
      BX   LR
  

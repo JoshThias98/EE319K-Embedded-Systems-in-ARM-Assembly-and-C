@@ -27,9 +27,23 @@ void EnableInterrupts(void);  // Enable interrupts
 #define PF1       (*((volatile uint32_t *)0x40025008))
 #define PF2       (*((volatile uint32_t *)0x40025010))
 #define PF3       (*((volatile uint32_t *)0x40025020))
-// Initialize Port F so PF1, PF2 and PF3 are heartbeats
-void PortF_Init(void){
 
+// Initialize Port F so PF1, PF2 and PF3 are heartbeats
+void PortF_Init(void){ 
+	
+		volatile int delay;
+		SYSCTL_RCGCGPIO_R |= 0x20;		//enable the clock for PortF
+		delay = SYSCTL_RCGCADC_R;       // extra time to stabilize
+		delay = SYSCTL_RCGCADC_R;       // extra time to stabilize
+		delay = SYSCTL_RCGCADC_R;       // extra time to stabilize
+		delay = SYSCTL_RCGCADC_R;
+		GPIO_PORTF_DIR_R |= 0x04;				//setting PF2 as output
+		GPIO_PORTF_AMSEL_R &= ~ 0x04;
+		GPIO_PORTF_PCTL_R &= ~ 0x04;
+		GPIO_PORTF_DIR_R |= 0x04;
+		GPIO_PORTF_AFSEL_R &= ~ 0x04;
+		GPIO_PORTF_DEN_R |= 0x04;
+	
 }
 uint32_t Data;        // 12-bit ADC
 uint32_t Position;    // 32-bit fixed-point 0.001 cm
@@ -41,7 +55,7 @@ int main1(void){      // single step this program and look at Data
   }
 }
 
-int main2(void){
+int main2(void){			//gets a regression line
   TExaS_Init();       // Bus clock is 80 MHz 
   ADC_Init();         // turn on ADC, set channel to 1
   ST7735_InitR(INITR_REDTAB); 
@@ -59,9 +73,10 @@ int main2(void){
 }
 
 uint32_t Convert(uint32_t input){
+	
   return 0;
 }
-int main3(void){ 
+int main3(void){ 				//
   TExaS_Init();         // Bus clock is 80 MHz 
   ST7735_InitR(INITR_REDTAB); 
   PortF_Init();
@@ -79,11 +94,61 @@ int main3(void){
     LCD_OutFix(Position);
     PF1 = 0;          // end of LCD Profile
   }
-}   
+}  
+
 int main(void){
-  TExaS_Init();
-  // your Lab 8
-  while(1){
-  }
+  main2();
 }
 
+void SysTick_Init(){
+	NVIC_ST_CTRL_R &= 0x00;
+	NVIC_ST_RELOAD_R = NVIC_ST_RELOAD_M;
+	NVIC_ST_CURRENT_R &= 0x00;
+	NVIC_ST_CTRL_R = (NVIC_ST_CTRL_ENABLE+NVIC_ST_CTRL_CLK_SRC);
+}
+//SysTick_Init
+//    ; disable SysTick during setup
+//    LDR R1, =NVIC_ST_CTRL_R         ; R1 = &NVIC_ST_CTRL_R
+//    MOV R0, #0                      ; R0 = 0
+//    STR R0, [R1]                    ; [R1] = R0 = 0
+//    ; maximum reload value
+//    LDR R1, =NVIC_ST_RELOAD_R       ; R1 = &NVIC_ST_RELOAD_R
+//    LDR R0, =NVIC_ST_RELOAD_M;      ; R0 = NVIC_ST_RELOAD_M
+//    STR R0, [R1]                    ; [R1] = R0 = NVIC_ST_RELOAD_M
+//    ; any write to current clears it
+//    LDR R1, =NVIC_ST_CURRENT_R      ; R1 = &NVIC_ST_CURRENT_R
+//    MOV R0, #0                      ; R0 = 0
+//    STR R0, [R1]                    ; [R1] = R0 = 0
+//    ; enable SysTick with core clock
+//    LDR R1, =NVIC_ST_CTRL_R         ; R1 = &NVIC_ST_CTRL_R
+//                                    ; R0 = ENABLE and CLK_SRC bits set
+//    MOV R0, #(NVIC_ST_CTRL_ENABLE+NVIC_ST_CTRL_CLK_SRC)
+//    STR R0, [R1]                    ; [R1] = R0 = (NVIC_ST_CTRL_ENABLE|NVIC_ST_CTRL_CLK_SRC)
+//    BX  LR                          ; return
+
+void SysTick_Wait(){ // translated from assembly
+	
+	NVIC_ST_RELOAD_R--;
+	
+}
+void SysTick_Wait_loop(){ //	translated from assembly
+	
+	while(NVIC_ST_CTRL_R == 0x00010000)
+	{
+	}
+}
+//;------------SysTick_Wait------------
+//; Time delay using busy wait.
+//; Input: R0  delay parameter in units of the core clock (units of 12.5 nsec for 80 MHz clock)
+//; Output: none
+//; Modifies: R0, R1, R3
+//SysTick_Wait
+//    LDR  R1, =NVIC_ST_RELOAD_R      ; R1 = &NVIC_ST_RELOAD_R
+//    SUB  R0, #1
+//    STR  R0, [R1]                   ;delay-1;  // number of counts to wait
+//    LDR  R1, =NVIC_ST_CTRL_R        ; R1 = &NVIC_ST_CTRL_R
+//SysTick_Wait_loop
+//    LDR  R3, [R1]                   ; R3 = NVIC_ST_CTRL_R
+//    ANDS R3, R3, #0x00010000       ; Count set?
+//    BEQ  SysTick_Wait_loop
+//    BX   LR                         ; return

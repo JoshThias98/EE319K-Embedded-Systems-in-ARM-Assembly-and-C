@@ -1,5 +1,5 @@
 ; LCD.s
-; Student names: change this to your names or look very silly
+; Student names: Arvin Bhatti and Josh Thias
 ; Last modification date: change this to the last modification date or look very silly
 
 ; Runs on LM4F120/TM4C123
@@ -19,6 +19,7 @@
 ; VCC (pin 2) connected to +3.3 V
 ; Gnd (pin 1) connected to ground
 
+DC                      EQU   0x40004100  ;copied in from Lab 7 LCD Driver
 GPIO_PORTA_DATA_R       EQU   0x400043FC
 SSI0_DR_R               EQU   0x40008008
 SSI0_SR_R               EQU   0x4000800C
@@ -63,8 +64,23 @@ writecommand
 ;5) Read SSI0_SR_R and check bit 4, 
 ;6) If bit 4 is high, loop back to step 5 (wait for BUSY bit to be low)
 
-    
-    
+	PUSH{R4,R5}
+	LDR R4, =SSI0_SR_R
+HI	LDR R1, [R4]                    
+	BIC R1, R1, #0xEF               ;clears everything except bit 4
+	CMP R1, #0x10                   ;compares with 0x10
+	BEQ HI                          ;loop back if r1 is 0x10
+    LDR R3, =DC
+	LDR R5, [R3]
+    BIC R5, R5, #0x40				;step 3
+	STR R5, [R3]
+	LDR R3, =SSI0_DR_R
+	STR R0, [R3]
+HI2	LDR R1, [R4]                    
+	BIC R1, R1, #0xEF               ;clears everything except bit 4
+	CMP R1, #0x10                   ;compares with 0x10
+	BEQ HI2   
+    POP{R4,R5}
     BX  LR                          ;   return
 
 ; This is a helper function that sends an 8-bit data to the LCD.
@@ -77,8 +93,19 @@ writedata
 ;3) Set D/C=PA6 to one
 ;4) Write the 8-bit data to SSI0_DR_R
 
-    
-    
+	PUSH{R4,R5}
+	LDR R4, =SSI0_SR_R              ; reads SSI0_SR_R
+	LDR R3, =DC
+LOW	LDR R1, [R4]                    ; step 2
+	AND R1, #0x01
+	CMP R1, #0x00
+	BEQ LOW
+    LDR R5, [R3]
+	ORR R5, R5, #0x40               ; step 3  
+	STR R5, [R3]                    
+    LDR R3, =SSI0_DR_R
+	STR R0,[R3]
+	POP{R4,R5}
     BX  LR                          ;   return
 
 
