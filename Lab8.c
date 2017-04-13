@@ -28,6 +28,8 @@ void EnableInterrupts(void);  // Enable interrupts
 #define PF2       (*((volatile uint32_t *)0x40025010))
 #define PF3       (*((volatile uint32_t *)0x40025020))
 
+uint64_t ADCMail;
+uint64_t ADCStatus;
 // Initialize Port F so PF1, PF2 and PF3 are heartbeats
 void PortF_Init(void){ 
 	
@@ -67,45 +69,63 @@ int main2(void){			//gets a regression line
     ST7735_SetCursor(0,0);
     PF1 = 0x02;       // Profile LCD
     LCD_OutDec(Data); 
-    ST7735_OutString("    ");  // these spaces are used to coverup characters from last output
+    ST7735_OutString("   ");  // these spaces are used to coverup characters from last output
     PF1 = 0;          // end of LCD Profile
   }
 }
 
 uint32_t Convert(uint32_t input){
-	
-  return 0;
+	uint32_t output;
+	output = input - 0.5909;
+	output= (output/2);
+	ST7735_OutString(""); 
+  return (output);
 }
+
+
+void SysTick_Init(){
+	NVIC_ST_CTRL_R &= 0x00;
+	NVIC_ST_RELOAD_R = 3000000;  //40 hz freq
+	NVIC_ST_CURRENT_R = 0x00;
+	NVIC_SYS_PRI3_R= (NVIC_SYS_PRI3_R&0x00FFFFFF)|0x20000000;
+	NVIC_ST_CTRL_R = 0x00000007;
+}
+
+
 int main3(void){ 				//
   TExaS_Init();         // Bus clock is 80 MHz 
   ST7735_InitR(INITR_REDTAB); 
   PortF_Init();
   ADC_Init();         // turn on ADC, set channel to 1
-  while(1){  
-    PF2 ^= 0x04;      // Heartbeat
-    Data = ADC_In();  // sample 12-bit channel 1
-    PF3 = 0x08;       // Profile Convert
-    Position = Convert(Data); 
-    PF3 = 0;          // end of Convert Profile
-    PF1 = 0x02;       // Profile LCD
-    ST7735_SetCursor(0,0);
-    LCD_OutDec(Data); ST7735_OutString("    "); 
-    ST7735_SetCursor(6,0);
-    LCD_OutFix(Position);
-    PF1 = 0;          // end of LCD Profile
-  }
-}  
-
+  SysTick_Init();
+	while(1){  
+//    PF2 ^= 0x04;      // Heartbeat
+//    Data = ADC_In();  // sample 12-bit channel 1
+//    PF3 = 0x08;       // Profile Convert
+//    Position = Convert(Data); 
+//    PF3 = 0;          // end of Convert Profile
+//    PF1 = 0x02;       // Profile LCD
+//    ST7735_SetCursor(0,0);
+//    LCD_OutDec(Data); ST7735_OutString(" "); 
+//    ST7735_SetCursor(6,0);
+//    LCD_OutFix(Position);
+//    PF1 = 0;          // end of LCD Profile
+		if (ADCStatus == 1){  ///////////////
+      uint64_t mailbox;
+      mailbox = ADCMail;			//read the mailbox
+			ADCStatus = 0;
+			mailbox = Convert(mailbox);
+			LCD_OutFix(mailbox);
+			ST7735_OutString("cm");
+			ST7735_SetCursor(0,0);
+    }
+  }  
+}
 int main(void){
-  main2();
+  main3();
 }
 
-void SysTick_Init(){
-	NVIC_ST_CTRL_R &= 0x00;
-	NVIC_ST_RELOAD_R = NVIC_ST_RELOAD_M;
-	NVIC_ST_CURRENT_R &= 0x00;
-	NVIC_ST_CTRL_R = (NVIC_ST_CTRL_ENABLE+NVIC_ST_CTRL_CLK_SRC);
-}
+
 //SysTick_Init
 //    ; disable SysTick during setup
 //    LDR R1, =NVIC_ST_CTRL_R         ; R1 = &NVIC_ST_CTRL_R
@@ -136,6 +156,14 @@ void SysTick_Wait_loop(){ //	translated from assembly
 	while(NVIC_ST_CTRL_R == 0x00010000)
 	{
 	}
+}
+
+void SysTick_Handler (void){
+	  PF2 ^= 0x04;
+	  PF2 ^= 0x04;
+		ADCMail = ADC_In();
+	  ADCStatus = 1;
+	  PF2 ^= 0x04;
 }
 //;------------SysTick_Wait------------
 //; Time delay using busy wait.
